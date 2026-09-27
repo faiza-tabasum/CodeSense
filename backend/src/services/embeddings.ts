@@ -1,21 +1,19 @@
-import { OpenAIEmbeddings } from "@langchain/openai";
+import { CohereEmbeddings } from "@langchain/cohere";
 
-let embedder: OpenAIEmbeddings | null = null;
+let embedder: CohereEmbeddings | null = null;
 
-function getEmbedder(): OpenAIEmbeddings {
+function getEmbedder(): CohereEmbeddings {
   if (!embedder) {
-    embedder = new OpenAIEmbeddings({
-      model: "text-embedding-3-small",
-      apiKey: process.env.OPENAI_API_KEY,
+    embedder = new CohereEmbeddings({
+      apiKey: process.env.COHERE_API_KEY,
+      model: "embed-english-v3.0",
+      inputType: "search_document",
     });
   }
   return embedder;
 }
 
-// Batches to stay well under request-size limits. Sequential batches, not
-// fully parallel — simple and predictable for an MVP; revisit if ingestion
-// speed becomes the complaint.
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 20;
 
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   const embedder = getEmbedder();

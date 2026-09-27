@@ -1,11 +1,7 @@
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatGroq } from "@langchain/groq";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { RetrievedChunk } from "../types";
-
-// Built with LangChain primitives directly (prompt template -> model ->
-// parser) rather than a black-box RetrievalQAChain, so the pipeline is easy
-// to explain step by step: this IS the chain, just written out.
 
 const promptTemplate = ChatPromptTemplate.fromMessages([
   [
@@ -23,14 +19,14 @@ Context chunks:
   ["human", "{question}"],
 ]);
 
-let model: ChatOpenAI | null = null;
+let model: ChatGroq | null = null;
 
-function getModel(): ChatOpenAI {
+function getModel(): ChatGroq {
   if (!model) {
-    model = new ChatOpenAI({
-      model: "gpt-4o-mini",
+    model = new ChatGroq({
+      apiKey: process.env.GROQ_API_KEY,
+      model: process.env.GROQ_CHAT_MODEL || "openai/gpt-oss-20b",
       temperature: 0.1,
-      apiKey: process.env.OPENAI_API_KEY,
     });
   }
   return model;

@@ -12,14 +12,14 @@ askRouter.post("/ask", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "repoId and question are required" });
   }
 
-  const [rows] = await pool.query("SELECT * FROM repos WHERE id = ?", [repoId]);
-  const repo = (rows as any[])[0];
-  if (!repo) return res.status(404).json({ error: "Repo not found" });
-  if (repo.status !== "ready") {
-    return res.status(409).json({ error: `Repo is not ready yet (status: ${repo.status})` });
-  }
-
   try {
+    const [rows] = await pool.query("SELECT * FROM repos WHERE id = ?", [repoId]);
+    const repo = (rows as any[])[0];
+    if (!repo) return res.status(404).json({ error: "Repo not found" });
+    if (repo.status !== "ready") {
+      return res.status(409).json({ error: `Repo is not ready yet (status: ${repo.status})` });
+    }
+
     const queryEmbedding = await embedQuery(question);
     const topChunks = await retrieveTopK(repoId, queryEmbedding, 6);
 
@@ -38,6 +38,8 @@ askRouter.post("/ask", async (req: Request, res: Response) => {
     res.json({ answer, sources });
   } catch (err: any) {
     console.error("Ask failed:", err);
-    res.status(500).json({ error: "Failed to generate an answer. Check server logs." });
+    res.status(500).json({
+      error: err.message || "Failed to generate an answer. Check server logs and that DB/API keys are configured correctly.",
+    });
   }
 });

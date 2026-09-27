@@ -20,7 +20,16 @@ ingestRouter.post("/ingest", async (req: Request, res: Response) => {
   }
 
   const fullName = `${owner}/${repo}`;
-  const conn = await pool.getConnection();
+
+  let conn;
+  try {
+    conn = await pool.getConnection();
+  } catch (err: any) {
+    console.error("Database connection failed:", err);
+    return res.status(500).json({
+      error: "Could not connect to the database. Check DB_HOST/DB_USER/DB_PASSWORD/DB_NAME in .env and that MySQL is running.",
+    });
+  }
 
   try {
     const [existingRows] = await conn.query(
@@ -45,9 +54,6 @@ ingestRouter.post("/ingest", async (req: Request, res: Response) => {
       repoId = (result as any).insertId;
     }
 
-    // Respond fast; do the actual work after. For an MVP with small repos
-    // this finishes in seconds, but this is the seam where you'd introduce
-    // a job queue (NEXT_STEPS.md #6) if ingestion time grows.
     res.json({ repoId, status: "ingesting" });
 
     try {
@@ -76,14 +82,26 @@ ingestRouter.post("/ingest", async (req: Request, res: Response) => {
       console.error("Ingestion failed:", bgErr);
       await conn.query("UPDATE repos SET status = 'failed' WHERE id = ?", [repoId]);
     }
+  } catch (err: any) {
+    console.error("Ingest route failed:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message || "Ingestion failed unexpectedly." });
+    }
   } finally {
     conn.release();
   }
 });
 
 ingestRouter.get("/repos/:id/status", async (req: Request, res: Response) => {
-  const [rows] = await pool.query("SELECT * FROM repos WHERE id = ?", [req.params.id]);
-  const repo = (rows as any[])[0];
-  if (!repo) return res.status(404).json({ error: "Repo not found" });
-  res.json(repo);
+  try {
+    const [rows] = await pool.query("SELECT * FROM repos WHERE id = ?", [req.params.id]);
+    const repo = (rows as any[])[0];
+    if (!repo) return res.status(404).json({ error: "Repo not found" });
+    res.json(repo);
+  } catch (err: any) {
+    console.error("Status check failed:", err);
+    res.status(500).json({
+      error: "Could not connect to the database. Check DB_HOST/DB_USER/DB_PASSWORD/DB_NAME in .env and that MySQL is running.",
+    });
+  }
 });
